@@ -56,9 +56,9 @@ final class PatchCommand extends Command
             $megatools = $this->config['megatools_exe'];
         }
 
-        $link = $this->config['patch_link'];
+        $link = file_get_contents($this->config['patch_server']);
 
-        if (!$link) {
+        if (!$link || !preg_match('~^https://mega.nz/file/.+~', $link)) {
             $question = new Question('Please, provide mega.nz link to patch: ');
             $question->setValidator(function ($answer) {
                 if (!preg_match('~^https://mega.nz/file/.+~', $answer)) {
@@ -73,8 +73,6 @@ final class PatchCommand extends Command
 
                 return Command::INVALID;
             }
-            $this->config['patch_link'] = $link;
-            $this->config->save();
         }
 
         //downloader
