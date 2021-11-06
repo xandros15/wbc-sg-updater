@@ -1,4 +1,4 @@
-megatools_exe: megatools.exe
+megatools_exe: bin\megatools.exe
 tmp_dir: tmp
 game_directory: 'C:\GOG Games\Warlords Battlecry 3'
 log_file: logs.log
