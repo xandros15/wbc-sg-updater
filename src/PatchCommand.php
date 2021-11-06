@@ -117,8 +117,14 @@ final class PatchCommand extends Command
             $override->enable();
         }
 
+        if ($downloader->getDownloadedFile()->getExtension() !== 'rar') {
+            throw new UnsupportedArchiveException("{$downloader->getDownloadedFile()->getFilename()} isn't supported file.");
+        }
+
+        $builder = new PatchFactory(RarPatch::class);
+        $patch = $builder->create($downloader->getDownloadedFile());
         $patcher = new GamePatcher(
-            $downloader,
+            $patch,
             $game,
             $gameOverrider,
             $this->logger
