@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace WBCUpdater;
 
 final class Override
@@ -55,6 +57,6 @@ final class Override
      */
     public function check(string $name): bool
     {
-        return preg_match($this->pattern, $name);
+        return (bool) preg_match($this->pattern, $name);
     }
 }
