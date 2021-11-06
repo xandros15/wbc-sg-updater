@@ -40,7 +40,7 @@ final class GamePatcher
 
     public function patch(): void
     {
-        $dryRun = true;
+        $dryRun = false;
         $archive = RarArchive::open($this->patch->getRealPath());
         foreach ($archive->getEntries() as $entry) {
             if ($this->canUpdate($entry)) {
