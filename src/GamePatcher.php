@@ -2,6 +2,7 @@
 
 namespace WBCUpdater;
 
+use Psr\Log\LoggerInterface;
 use RarArchive;
 use RarEntry;
 use SplFileInfo;
@@ -14,6 +15,8 @@ final class GamePatcher
     private Game $game;
     /** @var GameOverrider */
     private GameOverrider $overrider;
+    /** @var LoggerInterface */
+    private LoggerInterface $logger;
 
     /**
      * GamePatcher constructor.
@@ -21,15 +24,18 @@ final class GamePatcher
      * @param PatchDownloader $downloader
      * @param Game $game
      * @param GameOverrider $overrider
+     * @param LoggerInterface $logger
      */
     public function __construct(
         PatchDownloader $downloader,
         Game $game,
-        GameOverrider $overrider
+        GameOverrider $overrider,
+        LoggerInterface $logger
     ) {
         $this->patch = $downloader->getDownloadedFile();
         $this->game = $game;
         $this->overrider = $overrider;
+        $this->logger = $logger;
     }
 
     public function patch(): void
@@ -41,10 +47,14 @@ final class GamePatcher
                 echo 'Updating ' . $entry->getName();
                 if ($dryRun || $entry->extract($this->game->getDirectory())) {
                     echo '... done';
+                    $this->logger->info("Updated {$entry->getName()} ({$entry->getCrc()})");
                 } else {
                     echo '... failed';
+                    $this->logger->warning("Failed {$entry->getName()} ({$entry->getCrc()})");
                 }
                 echo PHP_EOL;
+            } else {
+                $this->logger->info("Skip {$entry->getName()} ({$entry->getCrc()})");
             }
         }
         $archive->close();

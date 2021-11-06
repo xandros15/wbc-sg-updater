@@ -2,6 +2,7 @@
 
 namespace WBCUpdater;
 
+use Monolog\Logger;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\QuestionHelper;
@@ -16,12 +17,15 @@ final class PatchCommand extends Command
     const DESCRIPTION = 'command using to patch your WBC game';
     /** @var Config */
     private Config $config;
+    /** @var Logger */
+    private Logger $logger;
 
-    public function __construct(Config $config)
+    public function __construct(Config $config, Logger $logger)
     {
         parent::__construct(self::NAME);
         $this->setDescription(self::DESCRIPTION);
         $this->config = $config;
+        $this->logger = $logger;
     }
 
     /**
@@ -116,7 +120,8 @@ final class PatchCommand extends Command
         $patcher = new GamePatcher(
             $downloader,
             $game,
-            $gameOverrider
+            $gameOverrider,
+            $this->logger
         );
         $patcher->patch();
 
