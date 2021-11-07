@@ -59,4 +59,24 @@ final class Override
     {
         return (bool) preg_match($this->pattern, $name);
     }
+
+    /**
+     * @param string $name
+     * @param string $pattern
+     * @param bool $enabled
+     *
+     * @return static
+     */
+    public static function create(string $name, string $pattern, bool $enabled = true): self
+    {
+        $override = new self($name, $pattern);
+
+        if ($enabled) {
+            $override->enable();
+        } else {
+            $override->disable();
+        }
+
+        return $override;
+    }
 }

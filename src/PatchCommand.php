@@ -107,20 +107,15 @@ final class PatchCommand extends Command
                 'Do you want to override KeyBinds? Warning: tooltip will be not updated. (y/N): ',
                 false
             );
-            $keyBindsHelp = new Override('keybindsHelp', '/^English\\\Help\.cfg$/');
-            $gameOverrider->add($keyBindsHelp);
-            $keyBindsMap = new Override('keybindsMap', '/^English\\\KeyMap\.txt$/');
-            $gameOverrider->add($keyBindsMap);
             if ($helper->ask($input, $output, $question)) {
-                $keyBindsHelp->enable();
-                $keyBindsMap->enable();
+                $gameOverrider->add(Override::create('keybindsHelp', '/^English\\\Help\.cfg$/'));
+                $gameOverrider->add(Override::create('keybindsMap', '/^English\\\KeyMap\.txt$/'));
             }
 
             $question = new ConfirmationQuestion('Do you want to override Army Sounds? (y/N): ', false);
-            $override = new Override('sounds', '/^Assets\\\Sides\\\\\w+VoicesEn.xcr$/');
-            $gameOverrider->add($override);
+
             if ($helper->ask($input, $output, $question)) {
-                $override->enable();
+                $gameOverrider->add(Override::create('sounds', '/^Assets\\\Sides\\\\\w+VoicesEn.xcr$/'));
             }
 
             if ($downloader->getDownloadedFile()->getExtension() !== 'rar') {
