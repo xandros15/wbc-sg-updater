@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace WBCUpdater;
 
 use Monolog\Logger;
-use RuntimeException;
 use SplFileInfo;
 use Symfony\Component\Process\Process;
+use WBCUpdater\Exceptions\ConfigurationException;
+use WBCUpdater\Exceptions\FileExistException;
+use WBCUpdater\Exceptions\RuntimeException;
 
 final class MegaPatchDownloader implements PatchDownloader
 {
@@ -38,7 +40,7 @@ final class MegaPatchDownloader implements PatchDownloader
     ) {
         $realpath = realpath($megatools);
         if (!$realpath) {
-            throw new RuntimeException("Cannot find megatools in {$megatools}.");
+            throw new ConfigurationException("Cannot find megatools in {$megatools}.");
         }
         $this->megatools = $realpath;
         $this->config = $config;
@@ -52,7 +54,6 @@ final class MegaPatchDownloader implements PatchDownloader
         $process->setTimeout(null);
         $process->run(function (string $stream, $payload) {
             if ($stream === Process::OUT) {
-                $this->logger->info(trim($payload));
                 if (preg_match('/^Downloaded\s(.*)/', $payload, $matches)) {
                     $this->downloadedFile = $this->config['tmp_dir'] . '/' . trim($matches[1]);
                 }

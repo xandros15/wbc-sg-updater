@@ -3,13 +3,16 @@
 namespace WBCUpdater;
 
 use Monolog\Logger;
-use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Console\Question\Question;
+use WBCUpdater\Exceptions\FileExistException;
+use WBCUpdater\Exceptions\InputException;
+use WBCUpdater\Exceptions\SystemException;
+use WBCUpdater\Exceptions\UnsupportedArchiveException;
 
 final class PatchCommand extends Command
 {
@@ -33,6 +36,7 @@ final class PatchCommand extends Command
      * @param OutputInterface $output
      *
      * @return int
+     * @throws SystemException
      */
     public function execute(InputInterface $input, OutputInterface $output): int
     {
@@ -62,7 +66,7 @@ final class PatchCommand extends Command
             $question = new Question('Please, provide mega.nz link to patch: ');
             $question->setValidator(function ($answer) {
                 if (!preg_match('~^https://mega.nz/file/.+~', $answer)) {
-                    throw new RuntimeException('Link should be valid mega link to file.');
+                    throw new InputException('Link should be valid mega link to file.');
                 }
 
                 return $answer;
@@ -93,7 +97,7 @@ final class PatchCommand extends Command
         }
 
         if (!$downloader->getDownloadedFile()) {
-            throw new MissingPatchFileException('Cannot find patch file.');
+            throw new InputException('Cannot find patch file.');
         }
 
         $gameOverrider = new GameOverrider();

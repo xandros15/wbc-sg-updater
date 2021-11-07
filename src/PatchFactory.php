@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBCUpdater;
 
 use SplFileInfo;
+use WBCUpdater\Exceptions\ConfigurationException;
 
 final class PatchFactory
 {
@@ -19,7 +20,7 @@ final class PatchFactory
     public function __construct(string $class)
     {
         if (!is_subclass_of($class, PatchInterface::class)) {
-            throw new ConfigureException(sprintf(
+            throw new ConfigurationException(sprintf(
                 'Class "%s" does not implement "%s".',
                 $class,
                 PatchInterface::class

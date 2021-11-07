@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WBCUpdater;
 
-use InvalidArgumentException;
+use WBCUpdater\Exceptions\ConfigurationException;
 
 final class GameOverrider
 {
@@ -19,7 +19,7 @@ final class GameOverrider
         if (!isset($this->overrides[$override->getName()])) {
             $this->overrides[$override->getName()] = $override;
         } else {
-            throw new InvalidArgumentException("Overrider {$override->getName()} already exists.");
+            throw new ConfigurationException("Overrider {$override->getName()} already exists.");
         }
     }
 

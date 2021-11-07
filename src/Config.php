@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace WBCUpdater;
 
 use ArrayAccess;
-use RuntimeException;
 use Symfony\Component\Yaml\Yaml;
+use WBCUpdater\Exceptions\BadMethodCallException;
+use WBCUpdater\Exceptions\SystemException;
 
 final class Config implements ArrayAccess
 {
@@ -25,10 +26,13 @@ final class Config implements ArrayAccess
         $this->params = Yaml::parseFile($filename);
     }
 
+    /**
+     * @throws SystemException
+     */
     public function save(): void
     {
         if ($this->isDirty && file_put_contents($this->filename, Yaml::dump($this->params, 2, 2)) === false) {
-            throw new RuntimeException("Cannot save config file in {$this->filename}.");
+            throw new SystemException("Cannot save config file in {$this->filename}.");
         }
     }
 
@@ -64,10 +68,10 @@ final class Config implements ArrayAccess
      *
      * @param $offset
      *
-     * @throws RuntimeException
+     * @throws BadMethodCallException
      */
     public function offsetUnset($offset)
     {
-        throw new RuntimeException('You cannot unset any of param.');
+        throw new BadMethodCallException('You cannot unset any of param.');
     }
 }
