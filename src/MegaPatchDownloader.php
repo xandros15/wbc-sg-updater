@@ -13,42 +13,42 @@ final class MegaPatchDownloader implements PatchDownloader
     /** @var string */
     private string $megatools;
     /** @var string */
-    private string $temp;
-    /** @var string */
     private string $downloadedFile;
     /** @var string */
     private string $link;
+    /** @var Config */
+    private Config $config;
 
     /**
      * MegaPatchDownloader constructor.
      *
      * @param string $link
      * @param string $megatools
-     * @param string $temp
+     * @param Config $config
      */
     public function __construct(
         string $link,
         string $megatools,
-        string $temp = __DIR__ . '/../tmp'
+        Config $config
     ) {
         $realpath = realpath($megatools);
         if (!$realpath) {
             throw new RuntimeException("Cannot find megatools in {$megatools}.");
         }
         $this->megatools = $realpath;
-        $this->temp = $temp;
+        $this->config = $config;
         $this->link = $link;
     }
 
     public function download(): void
     {
-        $process = new Process([$this->megatools, 'dl', '--path', $this->temp, $this->link]);
+        $process = new Process([$this->megatools, 'dl', '--path', $this->config['tmp_dir'], $this->link]);
         $process->setTimeout(null);
         $process->run(function (string $stream, $payload) {
             if ($stream === Process::OUT) {
                 echo $payload;
                 if (preg_match('/^Downloaded\s(.*)/', $payload, $matches)) {
-                    $this->downloadedFile = $this->temp . '/' . trim($matches[1]);
+                    $this->downloadedFile = $this->config['tmp_dir'] . '/' . trim($matches[1]);
                 }
             }
         });
