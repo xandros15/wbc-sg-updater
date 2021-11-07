@@ -54,6 +54,7 @@ final class MegaPatchDownloader implements PatchDownloader
         $process->setTimeout(null);
         $process->run(function (string $stream, $payload) {
             if ($stream === Process::OUT) {
+                echo $payload;
                 if (preg_match('/^Downloaded\s(.*)/', $payload, $matches)) {
                     $this->downloadedFile = $this->config['tmp_dir'] . '/' . trim($matches[1]);
                 }
