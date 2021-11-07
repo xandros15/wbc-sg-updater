@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBCUpdater;
 
+use Monolog\Logger;
 use RuntimeException;
 use SplFileInfo;
 use Symfony\Component\Process\Process;
@@ -18,6 +19,8 @@ final class MegaPatchDownloader implements PatchDownloader
     private string $link;
     /** @var Config */
     private Config $config;
+    /** @var Logger */
+    private Logger $logger;
 
     /**
      * MegaPatchDownloader constructor.
@@ -25,11 +28,13 @@ final class MegaPatchDownloader implements PatchDownloader
      * @param string $link
      * @param string $megatools
      * @param Config $config
+     * @param Logger $logger
      */
     public function __construct(
         string $link,
         string $megatools,
-        Config $config
+        Config $config,
+        Logger $logger
     ) {
         $realpath = realpath($megatools);
         if (!$realpath) {
@@ -38,6 +43,7 @@ final class MegaPatchDownloader implements PatchDownloader
         $this->megatools = $realpath;
         $this->config = $config;
         $this->link = $link;
+        $this->logger = $logger;
     }
 
     public function download(): void
@@ -46,7 +52,7 @@ final class MegaPatchDownloader implements PatchDownloader
         $process->setTimeout(null);
         $process->run(function (string $stream, $payload) {
             if ($stream === Process::OUT) {
-                echo $payload;
+                $this->logger->info(trim($payload));
                 if (preg_match('/^Downloaded\s(.*)/', $payload, $matches)) {
                     $this->downloadedFile = $this->config['tmp_dir'] . '/' . trim($matches[1]);
                 }
@@ -59,6 +65,7 @@ final class MegaPatchDownloader implements PatchDownloader
                 $this->downloadedFile = trim($matches[1]);
                 throw new FileExistException($error);
             } else {
+                $this->logger->error(trim($error));
                 throw new RuntimeException($error);
             }
         }

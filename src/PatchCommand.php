@@ -76,7 +76,7 @@ final class PatchCommand extends Command
         }
 
         //downloader
-        $downloader = new MegaPatchDownloader($link, $megatools, $this->config);
+        $downloader = new MegaPatchDownloader($link, $megatools, $this->config, $this->logger);
 
         try {
             $output->writeln(sprintf('Starting download patch from %s', $link));
