@@ -12,6 +12,7 @@ use Symfony\Component\Console\Question\Question;
 use throwable;
 use WBCUpdater\Commands\CommandInterface;
 use WBCUpdater\Commands\FullPatch;
+use WBCUpdater\Commands\MusicPatch;
 use WBCUpdater\Commands\ShowChangelog;
 
 final class PatchCommand extends Command
@@ -68,6 +69,15 @@ final class PatchCommand extends Command
                 new FullPatch(
                     $game,
                     new Repository($this->config['patch_full']),
+                    $downloader,
+                    $this->logger
+                ),
+                new MusicPatch(
+                    $game,
+                    new RepositoryGroup([
+                        'Warlords Battlecry 2' => new Repository($this->config['patch_music_2']),
+                        'Warlords Battlecry 3' => new Repository($this->config['patch_music_3']),
+                    ]),
                     $downloader,
                     $this->logger
                 ),
