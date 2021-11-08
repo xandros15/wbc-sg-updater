@@ -22,6 +22,12 @@ final class PatchCommand extends Command
     private Config $config;
     /** @var Logger */
     private Logger $logger;
+    /** @var Game */
+    private Game $game;
+    /** @var MegaPatchDownloader */
+    private MegaPatchDownloader $downloader;
+    /** @var GameOverrider */
+    private GameOverrider $overrider;
 
     public function __construct(Config $config, Logger $logger)
     {
@@ -35,28 +41,81 @@ final class PatchCommand extends Command
      * @param InputInterface $input
      * @param OutputInterface $output
      *
+     * @throws throwable
+     */
+    public function initialize(InputInterface $input, OutputInterface $output)
+    {
+        /** @var $helper QuestionHelper */
+        $helper = $this->getHelper('question');
+
+        $this->game = new Game($this->config['game_directory']);
+
+        while (!$this->game->checkDirectory()) {
+            $output->writeln("Cannot find game in {$this->game->getDirectory()}");
+            $question = new Question('Type correct directory in command line:');
+            $answer = $helper->ask($input, $output, $question);
+            $this->game->changeDirectory($answer);
+        }
+        //update config
+        $this->config['game_directory'] = $this->game->getDirectory();
+
+        try {
+            $this->config->save();
+        } catch (\throwable $exception) {
+            $this->logger->error($exception);
+            throw $exception;
+        }
+
+        //downloader
+        $this->downloader = new MegaPatchDownloader(
+            Normalizer::path($this->config['megatools_exe']),
+            $this->config['tmp_dir'],
+            $this->logger
+        );
+
+        $this->overrider = new GameOverrider();
+
+        $question = new ConfirmationQuestion(
+            'Do you want to override KeyBinds? Warning: tooltip will be not updated. (y/N): ',
+            false
+        );
+        $answer = $helper->ask($input, $output, $question);
+        $this->overrider->add(Override::create('help', '/^English\\\Help\.cfg$/', $answer));
+        $this->overrider->add(Override::create('keymap', '/^English\\\KeyMap\.txt$/', $answer));
+
+        $question = new ConfirmationQuestion('Do you want to override sounds? (y/N): ', false);
+        $answer = $helper->ask($input, $output, $question);
+        $this->overrider->add(Override::create('voices', '/^Assets\\\Sides\\\\\w+VoicesEn.xcr$/', $answer));
+        $this->overrider->add(Override::create('speech', '/^English\\\GameSpeech\.xcr$/', $answer));
+
+        $question = new ConfirmationQuestion('Do you want to override texts? (y/N): ', false);
+        $answer = $helper->ask($input, $output, $question);
+        $this->overrider->add(Override::create('game', '/^English\\\Game\.txt$/', $answer));
+        $this->overrider->add(Override::create('screen help', '/^English\\\ScreenHelp\.txt$/', $answer));
+        $this->overrider->add(Override::create('spells', '/^English\\\Spells\.txt$/', $answer));
+        $this->overrider->add(Override::create('quest', '/^English\\\Quest\.cfg$/', $answer));
+        $this->overrider->add(Override::create('names', '/^English\\\Names\.cfg$/', $answer));
+        $this->overrider->add(Override::create('tutorial', '/^English\\\Tutorial\.cfg$/', $answer));
+        $this->overrider->add(Override::create('victory', '/^English\\\Victory\.cfg$/', $answer));
+        $this->overrider->add(Override::create('history', '/^English\\\History\.xml$/', $answer));
+        $this->overrider->add(Override::create('journal', '/^English\\\Journal\.xml$/', $answer));
+        $this->overrider->add(Override::create('hero selection', '/^English\\\WBC3HeroSelectionText\.txt$/', $answer));
+        $this->overrider->add(Override::create('xci strings', '/^English\\\XCIStrings\.txt$/', $answer));
+        $this->overrider->add(Override::create('campaign', '/^English\\\Campaign\\\\\w+\.(?:wav|xml)$/', $answer));
+    }
+
+    /**
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     *
      * @return int
      * @throws throwable
      */
     public function execute(InputInterface $input, OutputInterface $output): int
     {
         try {
-            $game = new Game($this->config['game_directory']);
-
             /** @var $helper QuestionHelper */
             $helper = $this->getHelper('question');
-            while (!$game->checkDirectory()) {
-                $output->writeln("Cannot find game in {$game->getDirectory()}");
-                $question = new Question('Type correct directory in command line:');
-                $answer = $helper->ask($input, $output, $question);
-                $game->changeDirectory($answer);
-            }
-            //update config
-            $this->config['game_directory'] = $game->getDirectory();
-            $this->config->save();
-
-            //normalize megatools
-            $megatools = Normalizer::path($this->config['megatools_exe']);
 
             $link = (string) file_get_contents($this->config['patch_server']);
             $link = new MegaFileLink($link);
@@ -67,74 +126,39 @@ final class PatchCommand extends Command
                 $link = MegaFileLink::createFromString((string) $helper->ask($input, $output, $question));
             }
 
-            //downloader
-            $downloader = new MegaPatchDownloader($link, $megatools, $this->config, $this->logger);
-
-
             try {
                 $output->writeln(sprintf('Starting download patch from %s', $link->getLink()));
-                $downloader->download();
+                $this->downloader->download($link);
             } catch (FileExistException $exception) {
                 $output->writeln($exception->getMessage());
                 $question = new ConfirmationQuestion('Do you want to override patch file? (y/N): ', false);
                 $answer = $helper->ask($input, $output, $question);
                 if ($answer) {
-                    unlink($downloader->getDownloadedFile()->getRealPath());
+                    unlink($this->downloader->getDownloadedFile()->getRealPath());
                     $output->writeln(sprintf('Starting download patch from %s', $link->getLink()));
-                    $downloader->download();
+                    $this->downloader->download($link);
                 }
             }
 
-            if (!$downloader->getDownloadedFile()) {
+            if (!$this->downloader->getDownloadedFile()) {
                 throw new InputException('Cannot find patch file.');
             }
 
-            $gameOverrider = new GameOverrider();
-
-            $question = new ConfirmationQuestion(
-                'Do you want to override KeyBinds? Warning: tooltip will be not updated. (y/N): ',
-                false
-            );
-            $answer = $helper->ask($input, $output, $question);
-            $gameOverrider->add(Override::create('help', '/^English\\\Help\.cfg$/', $answer));
-            $gameOverrider->add(Override::create('keymap', '/^English\\\KeyMap\.txt$/', $answer));
-
-            $question = new ConfirmationQuestion('Do you want to override sounds? (y/N): ', false);
-            $answer = $helper->ask($input, $output, $question);
-            $gameOverrider->add(Override::create('voices', '/^Assets\\\Sides\\\\\w+VoicesEn.xcr$/', $answer));
-            $gameOverrider->add(Override::create('speech', '/^English\\\GameSpeech\.xcr$/', $answer));
-
-            $question = new ConfirmationQuestion('Do you want to override texts? (y/N): ', false);
-            $answer = $helper->ask($input, $output, $question);
-            $gameOverrider->add(Override::create('game', '/^English\\\Game\.txt$/', $answer));
-            $gameOverrider->add(Override::create('screen help', '/^English\\\ScreenHelp\.txt$/', $answer));
-            $gameOverrider->add(Override::create('spells', '/^English\\\Spells\.txt$/', $answer));
-            $gameOverrider->add(Override::create('quest', '/^English\\\Quest\.cfg$/', $answer));
-            $gameOverrider->add(Override::create('names', '/^English\\\Names\.cfg$/', $answer));
-            $gameOverrider->add(Override::create('tutorial', '/^English\\\Tutorial\.cfg$/', $answer));
-            $gameOverrider->add(Override::create('victory', '/^English\\\Victory\.cfg$/', $answer));
-            $gameOverrider->add(Override::create('history', '/^English\\\History\.xml$/', $answer));
-            $gameOverrider->add(Override::create('journal', '/^English\\\Journal\.xml$/', $answer));
-            $gameOverrider->add(Override::create('hero selection', '/^English\\\WBC3HeroSelectionText\.txt$/',
-                $answer));
-            $gameOverrider->add(Override::create('xci strings', '/^English\\\XCIStrings\.txt$/', $answer));
-            $gameOverrider->add(Override::create('campaign', '/^English\\\Campaign\\\\\w+\.(?:wav|xml)$/', $answer));
-
-            if ($downloader->getDownloadedFile()->getExtension() !== 'rar') {
-                throw new UnsupportedArchiveException("{$downloader->getDownloadedFile()->getFilename()} isn't supported file.");
+            if ($this->downloader->getDownloadedFile()->getExtension() !== 'rar') {
+                throw new UnsupportedArchiveException("{$this->downloader->getDownloadedFile()->getFilename()} isn't supported file.");
             }
 
             $builder = new PatchFactory(RarPatch::class);
-            $patch = $builder->create($downloader->getDownloadedFile());
+            $patch = $builder->create($this->downloader->getDownloadedFile());
             $patcher = new GamePatcher(
                 $patch,
-                $game,
-                $gameOverrider,
+                $this->game,
+                $this->overrider,
                 $this->logger
             );
             $patcher->patch();
 
-            if ($game->removePatchXcr()) {
+            if ($this->game->removePatchXcr()) {
                 $output->writeln('Removed PatchData.xcr.');
             }
         } catch (throwable $e) {

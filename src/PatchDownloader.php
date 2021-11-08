@@ -8,7 +8,10 @@ use SplFileInfo;
 
 interface PatchDownloader
 {
-    public function download(): void;
+    /**
+     * @param PatchLinkInterface $link
+     */
+    public function download(PatchLinkInterface $link): void;
 
     /**
      * @return SplFileInfo|null

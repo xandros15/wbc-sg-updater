@@ -18,10 +18,8 @@ final class MegaPatchDownloader implements PatchDownloader
     private string $megatools;
     /** @var string */
     private string $downloadedFile;
-    /** @var MegaFileLink */
-    private MegaFileLink $link;
-    /** @var Config */
-    private Config $config;
+    /** @var string */
+    private string $tmpDir;
     /** @var Logger */
     private Logger $logger;
     /** @var callable */
@@ -30,43 +28,44 @@ final class MegaPatchDownloader implements PatchDownloader
     /**
      * MegaPatchDownloader constructor.
      *
-     * @param MegaFileLink $link
      * @param string $megatools
-     * @param Config $config
+     * @param string $tmpDir
      * @param Logger $logger
      */
     public function __construct(
-        MegaFileLink $link,
         string $megatools,
-        Config $config,
+        string $tmpDir,
         Logger $logger
     ) {
         $realpath = realpath($megatools);
         if (!$realpath) {
             throw new ConfigurationException("Cannot find megatools in {$megatools}.");
         }
-        if (!$link->isValid()) {
-            throw new InputException(sprintf('Link should be valid %s link to file.', $link->getName()));
-        }
 
         $this->megatools = $realpath;
-        $this->config = $config;
-        $this->link = $link;
+        $this->tmpDir = $tmpDir;
         $this->logger = $logger;
         $this->setStatusDisplay(function (string $data) {
             echo $data;
         });
     }
 
-    public function download(): void
+    /**
+     * @param PatchLinkInterface $link
+     */
+    public function download(PatchLinkInterface $link): void
     {
-        $process = new Process([$this->megatools, 'dl', '--path', $this->config['tmp_dir'], $this->link->getLink()]);
+        if (!$link->isValid()) {
+            throw new InputException(sprintf('Link should be valid %s link to file.', $link->getName()));
+        }
+
+        $process = new Process([$this->megatools, 'dl', '--path', $this->tmpDir, $link->getLink()]);
         $process->setTimeout(null);
         $process->run(function (string $stream, $payload) {
             if ($stream === Process::OUT) {
                 ($this->displayStatus)($payload);
                 if (preg_match('/^Downloaded\s(.*)/', $payload, $matches)) {
-                    $this->downloadedFile = $this->config['tmp_dir'] . '/' . trim($matches[1]);
+                    $this->downloadedFile = $this->tmpDir . '/' . trim($matches[1]);
                 }
             }
         });
