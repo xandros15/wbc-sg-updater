@@ -9,6 +9,7 @@ use SplFileInfo;
 use Symfony\Component\Process\Process;
 use WBCUpdater\Exceptions\ConfigurationException;
 use WBCUpdater\Exceptions\FileExistException;
+use WBCUpdater\Exceptions\InputException;
 use WBCUpdater\Exceptions\RuntimeException;
 
 final class MegaPatchDownloader implements PatchDownloader
@@ -17,8 +18,8 @@ final class MegaPatchDownloader implements PatchDownloader
     private string $megatools;
     /** @var string */
     private string $downloadedFile;
-    /** @var string */
-    private string $link;
+    /** @var MegaFileLink */
+    private MegaFileLink $link;
     /** @var Config */
     private Config $config;
     /** @var Logger */
@@ -27,13 +28,13 @@ final class MegaPatchDownloader implements PatchDownloader
     /**
      * MegaPatchDownloader constructor.
      *
-     * @param string $link
+     * @param MegaFileLink $link
      * @param string $megatools
      * @param Config $config
      * @param Logger $logger
      */
     public function __construct(
-        string $link,
+        MegaFileLink $link,
         string $megatools,
         Config $config,
         Logger $logger
@@ -42,6 +43,10 @@ final class MegaPatchDownloader implements PatchDownloader
         if (!$realpath) {
             throw new ConfigurationException("Cannot find megatools in {$megatools}.");
         }
+        if (!$link->isValid()) {
+            throw new InputException(sprintf('Link should be valid %s link to file.', $link->getName()));
+        }
+
         $this->megatools = $realpath;
         $this->config = $config;
         $this->link = $link;
@@ -50,7 +55,7 @@ final class MegaPatchDownloader implements PatchDownloader
 
     public function download(): void
     {
-        $process = new Process([$this->megatools, 'dl', '--path', $this->config['tmp_dir'], $this->link]);
+        $process = new Process([$this->megatools, 'dl', '--path', $this->config['tmp_dir'], $this->link->getLink()]);
         $process->setTimeout(null);
         $process->run(function (string $stream, $payload) {
             if ($stream === Process::OUT) {

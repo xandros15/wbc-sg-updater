@@ -61,30 +61,21 @@ final class PatchCommand extends Command
                 $megatools = $this->config['megatools_exe'];
             }
 
-            $link = file_get_contents($this->config['patch_server']);
+            $link = (string) file_get_contents($this->config['patch_server']);
+            $link = new MegaFileLink($link);
 
-            if (!$link || !preg_match('~^https://mega.nz/file/.+~', $link)) {
+            if (!$link->isValid()) {
                 $question = new Question('Please, provide mega.nz link to patch: ');
-                $question->setValidator(function ($answer) {
-                    if (!preg_match('~^https://mega.nz/file/.+~', $answer)) {
-                        throw new InputException('Link should be valid mega link to file.');
-                    }
-
-                    return $answer;
-                });
-                $link = $helper->ask($input, $output, $question);
-                if (!$link) {
-                    $output->writeln('Missing patch link, exit.');
-
-                    return Command::INVALID;
-                }
+                $question->setValidator(fn ($answer) => LinkValidator::assert(MegaFileLink::createFromString($answer)));
+                $link = MegaFileLink::createFromString((string) $helper->ask($input, $output, $question));
             }
 
             //downloader
             $downloader = new MegaPatchDownloader($link, $megatools, $this->config, $this->logger);
 
+
             try {
-                $output->writeln(sprintf('Starting download patch from %s', $link));
+                $output->writeln(sprintf('Starting download patch from %s', $link->getLink()));
                 $downloader->download();
             } catch (FileExistException $exception) {
                 $output->writeln($exception->getMessage());
@@ -92,7 +83,7 @@ final class PatchCommand extends Command
                 $answer = $helper->ask($input, $output, $question);
                 if ($answer) {
                     unlink($downloader->getDownloadedFile()->getRealPath());
-                    $output->writeln(sprintf('Starting download patch from %s', $link));
+                    $output->writeln(sprintf('Starting download patch from %s', $link->getLink()));
                     $downloader->download();
                 }
             }
