@@ -61,7 +61,7 @@ final class PatchCommand extends Command
 
         try {
             $this->config->save();
-        } catch (\throwable $exception) {
+        } catch (throwable $exception) {
             $this->logger->error($exception);
             throw $exception;
         }
@@ -116,9 +116,8 @@ final class PatchCommand extends Command
         try {
             /** @var $helper QuestionHelper */
             $helper = $this->getHelper('question');
-
-            $link = (string) file_get_contents($this->config['patch_server']);
-            $link = new MegaFileLink($link);
+            $repository = new Repository($this->config['patch_server']);
+            $link = $repository->getPatchLink(MegaFileLink::class);
 
             if (!$link->isValid()) {
                 $question = new Question('Please, provide mega.nz link to patch: ');
