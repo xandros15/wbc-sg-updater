@@ -24,6 +24,8 @@ final class MegaPatchDownloader implements PatchDownloader
     private Config $config;
     /** @var Logger */
     private Logger $logger;
+    /** @var callable */
+    private $displayStatus;
 
     /**
      * MegaPatchDownloader constructor.
@@ -51,6 +53,9 @@ final class MegaPatchDownloader implements PatchDownloader
         $this->config = $config;
         $this->link = $link;
         $this->logger = $logger;
+        $this->setStatusDisplay(function (string $data) {
+            echo $data;
+        });
     }
 
     public function download(): void
@@ -59,7 +64,7 @@ final class MegaPatchDownloader implements PatchDownloader
         $process->setTimeout(null);
         $process->run(function (string $stream, $payload) {
             if ($stream === Process::OUT) {
-                echo $payload;
+                ($this->displayStatus)($payload);
                 if (preg_match('/^Downloaded\s(.*)/', $payload, $matches)) {
                     $this->downloadedFile = $this->config['tmp_dir'] . '/' . trim($matches[1]);
                 }
@@ -84,5 +89,13 @@ final class MegaPatchDownloader implements PatchDownloader
     public function getDownloadedFile(): ?SplFileInfo
     {
         return isset($this->downloadedFile) ? new SplFileInfo($this->downloadedFile) : null;
+    }
+
+    /**
+     * @param callable $display
+     */
+    public function setStatusDisplay(callable $display): void
+    {
+        $this->displayStatus = $display;
     }
 }

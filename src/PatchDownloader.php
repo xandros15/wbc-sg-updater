@@ -14,4 +14,9 @@ interface PatchDownloader
      * @return SplFileInfo|null
      */
     public function getDownloadedFile(): ?SplFileInfo;
+
+    /**
+     * @param callable $display
+     */
+    public function setStatusDisplay(callable $display): void;
 }
