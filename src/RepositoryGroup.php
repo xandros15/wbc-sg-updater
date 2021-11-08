@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBCUpdater;
 
+use WBCUpdater\Exceptions\ConfigurationException;
+
 final class RepositoryGroup
 {
     private array $repositories;
@@ -21,20 +23,24 @@ final class RepositoryGroup
     }
 
     /**
-     * @param string $name
+     * @param string|int $name
      * @param Repository $repository
      */
-    public function addRepository(string $name, Repository $repository): void
+    public function addRepository($name, Repository $repository): void
     {
+        if (!is_scalar($name)) {
+            throw new ConfigurationException(sprintf('Argument $name isn\'t scalar. Got %s', get_debug_type($name)));
+        }
+
         $this->repositories[$name] = $repository;
     }
 
     /**
-     * @param string $name
+     * @param string|int $name
      *
      * @return Repository|null
      */
-    public function getRepository(string $name): ?Repository
+    public function getRepository($name): ?Repository
     {
         return $this->repositories[$name] ?? null;
     }
