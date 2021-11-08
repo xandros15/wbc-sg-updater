@@ -107,16 +107,30 @@ final class PatchCommand extends Command
                 'Do you want to override KeyBinds? Warning: tooltip will be not updated. (y/N): ',
                 false
             );
-            if ($helper->ask($input, $output, $question)) {
-                $gameOverrider->add(Override::create('keybindsHelp', '/^English\\\Help\.cfg$/'));
-                $gameOverrider->add(Override::create('keybindsMap', '/^English\\\KeyMap\.txt$/'));
-            }
+            $answer = $helper->ask($input, $output, $question);
+            $gameOverrider->add(Override::create('help', '/^English\\\Help\.cfg$/', $answer));
+            $gameOverrider->add(Override::create('keymap', '/^English\\\KeyMap\.txt$/', $answer));
 
-            $question = new ConfirmationQuestion('Do you want to override Army Sounds? (y/N): ', false);
+            $question = new ConfirmationQuestion('Do you want to override sounds? (y/N): ', false);
+            $answer = $helper->ask($input, $output, $question);
+            $gameOverrider->add(Override::create('voices', '/^Assets\\\Sides\\\\\w+VoicesEn.xcr$/', $answer));
+            $gameOverrider->add(Override::create('speech', '/^English\\\GameSpeech\.xcr$/', $answer));
 
-            if ($helper->ask($input, $output, $question)) {
-                $gameOverrider->add(Override::create('sounds', '/^Assets\\\Sides\\\\\w+VoicesEn.xcr$/'));
-            }
+            $question = new ConfirmationQuestion('Do you want to override texts? (y/N): ', false);
+            $answer = $helper->ask($input, $output, $question);
+            $gameOverrider->add(Override::create('game', '/^English\\\Game\.txt$/', $answer));
+            $gameOverrider->add(Override::create('screen help', '/^English\\\ScreenHelp\.txt$/', $answer));
+            $gameOverrider->add(Override::create('spells', '/^English\\\Spells\.txt$/', $answer));
+            $gameOverrider->add(Override::create('quest', '/^English\\\Quest\.cfg$/', $answer));
+            $gameOverrider->add(Override::create('names', '/^English\\\Names\.cfg$/', $answer));
+            $gameOverrider->add(Override::create('tutorial', '/^English\\\Tutorial\.cfg$/', $answer));
+            $gameOverrider->add(Override::create('victory', '/^English\\\Victory\.cfg$/', $answer));
+            $gameOverrider->add(Override::create('history', '/^English\\\History\.xml$/', $answer));
+            $gameOverrider->add(Override::create('journal', '/^English\\\Journal\.xml$/', $answer));
+            $gameOverrider->add(Override::create('hero selection', '/^English\\\WBC3HeroSelectionText\.txt$/',
+                $answer));
+            $gameOverrider->add(Override::create('xci strings', '/^English\\\XCIStrings\.txt$/', $answer));
+            $gameOverrider->add(Override::create('campaign', '/^English\\\Campaign\\\w+\.(?:wav|xml)$/', $answer));
 
             if ($downloader->getDownloadedFile()->getExtension() !== 'rar') {
                 throw new UnsupportedArchiveException("{$downloader->getDownloadedFile()->getFilename()} isn't supported file.");
