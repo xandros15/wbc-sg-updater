@@ -130,7 +130,7 @@ final class PatchCommand extends Command
             $gameOverrider->add(Override::create('hero selection', '/^English\\\WBC3HeroSelectionText\.txt$/',
                 $answer));
             $gameOverrider->add(Override::create('xci strings', '/^English\\\XCIStrings\.txt$/', $answer));
-            $gameOverrider->add(Override::create('campaign', '/^English\\\Campaign\\\w+\.(?:wav|xml)$/', $answer));
+            $gameOverrider->add(Override::create('campaign', '/^English\\\Campaign\\\\\w+\.(?:wav|xml)$/', $answer));
 
             if ($downloader->getDownloadedFile()->getExtension() !== 'rar') {
                 throw new UnsupportedArchiveException("{$downloader->getDownloadedFile()->getFilename()} isn't supported file.");
