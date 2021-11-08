@@ -12,6 +12,7 @@ use Symfony\Component\Console\Question\Question;
 use throwable;
 use WBCUpdater\Commands\CommandInterface;
 use WBCUpdater\Commands\FullPatch;
+use WBCUpdater\Commands\ShowChangelog;
 
 final class PatchCommand extends Command
 {
@@ -70,6 +71,7 @@ final class PatchCommand extends Command
                     $downloader,
                     $this->logger
                 ),
+                new ShowChangelog($this->config['patch_notes']),
             ]);
 
             $this->command = $helper->ask($input, $output, $question);
