@@ -56,10 +56,7 @@ final class PatchCommand extends Command
             $this->config->save();
 
             //normalize megatools
-            $megatools = $this->config['megatools_exe'];
-            if (substr($megatools, 1, 1) !== ':') {
-                $megatools = $this->config['megatools_exe'];
-            }
+            $megatools = Normalizer::path($this->config['megatools_exe']);
 
             $link = (string) file_get_contents($this->config['patch_server']);
             $link = new MegaFileLink($link);

@@ -14,6 +14,7 @@ $log = new Logger(
     [new StreamHandler(__DIR__ . '/' . $config['log_file'], Logger::INFO)]
 );
 
+chdir(__DIR__);
 $application = new Application('WBC patcher', '1.0.0');
 $command = new PatchCommand($config, $log);
 $application->add($command);
