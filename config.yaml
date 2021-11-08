@@ -2,4 +2,4 @@ megatools_exe: bin\megatools.exe
 tmp_dir: tmp
 game_directory: C:\GOG Games\Warlords Battlecry 3
 log_file: logs.log
-patch_server: http://pastebin.com/raw/WVFD6vjA
+patch_full: http://pastebin.com/raw/WVFD6vjA
