@@ -59,29 +59,29 @@ final class GamePatcher
     }
 
     /**
-     * @param PatchFile $file
+     * @param PatchFile $remote
      *
      * @return bool
      */
-    private function canUpdate(PatchFile $file): bool
+    private function canUpdate(PatchFile $remote): bool
     {
-        if (!$this->overrider->canOverride($file->getName())) {
+        if (!$this->overrider->canOverride($remote->getName())) {
             return false;
         }
 
-        $existing = new SplFileInfo($this->game->getDirectory() . '/' . $file->getName());
+        $local = new SplFileInfo($this->game->getDirectory() . '/' . $remote->getName());
 
-        return (bool) $existing->getRealPath() && $existing->isFile() && !$this->isSameFile($existing, $file);
+        return !$this->isSameFile($local, $remote);
     }
 
     /**
-     * @param SplFileInfo $exist
-     * @param PatchFile $new
+     * @param SplFileInfo $local
+     * @param PatchFile $remote
      *
      * @return bool
      */
-    private function isSameFile(SplFileInfo $exist, PatchFile $new): bool
+    private function isSameFile(SplFileInfo $local, PatchFile $remote): bool
     {
-        return $exist->isFile() && dechex(crc32(file_get_contents($exist->getRealPath()))) === $new->getCrc32();
+        return $local->isFile() && dechex(crc32(file_get_contents($local->getRealPath()))) === $remote->getCrc32();
     }
 }
