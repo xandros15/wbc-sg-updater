@@ -6,15 +6,16 @@ use Monolog\Logger;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\Question;
 use throwable;
-use WBCUpdater\Commands\CommandInterface;
 use WBCUpdater\Commands\FullPatch;
 use WBCUpdater\Commands\LocalizationPatch;
 use WBCUpdater\Commands\MusicPatch;
 use WBCUpdater\Commands\ShowChangelog;
+use WBCUpdater\Commands\SimplePatch;
 
 final class PatchCommand extends Command
 {
@@ -24,8 +25,6 @@ final class PatchCommand extends Command
     private Config $config;
     /** @var Logger */
     private Logger $logger;
-    /** @var CommandInterface */
-    private CommandInterface $command;
 
     public function __construct(Config $config, Logger $logger)
     {
@@ -35,13 +34,19 @@ final class PatchCommand extends Command
         $this->logger = $logger;
     }
 
+    public function configure()
+    {
+        $this->addOption('simple', 's', InputOption::VALUE_NONE, 'Use only if you are stupid, simple?');
+    }
+
     /**
      * @param InputInterface $input
      * @param OutputInterface $output
      *
+     * @return int
      * @throws throwable
      */
-    public function initialize(InputInterface $input, OutputInterface $output)
+    public function execute(InputInterface $input, OutputInterface $output): int
     {
         try {
             /** @var $helper QuestionHelper */
@@ -65,56 +70,54 @@ final class PatchCommand extends Command
                 $this->logger
             );
 
-            $question = new ChoiceQuestion(
-                'Do you want to:', [
-                new FullPatch(
+            if ($input->getOption('simple')) {
+                $command = new SimplePatch(
                     $game,
                     new Repository($this->config['patch_full']),
                     $downloader,
                     $this->logger
-                ),
-                new LocalizationPatch(
-                    $game,
-                    new RepositoryGroup([
-                        LocalizationPatch::LANG_PL => new Repository($this->config['patch_pl']),
-                        LocalizationPatch::LANG_EN => new Repository($this->config['patch_en']),
-                    ]),
-                    $downloader,
-                    $this->logger
-                ),
-                new MusicPatch(
-                    $game,
-                    new RepositoryGroup([
-                        'Warlords Battlecry 2' => new Repository($this->config['patch_music_2']),
-                        'Warlords Battlecry 3' => new Repository($this->config['patch_music_3']),
-                    ]),
-                    $downloader,
-                    $this->logger
-                ),
-                new ShowChangelog($this->config['patch_notes']),
-            ]);
+                );
+            } else {
+                $question = new ChoiceQuestion(
+                    'Do you want to:', [
+                    new FullPatch(
+                        $game,
+                        new Repository($this->config['patch_full']),
+                        $downloader,
+                        $this->logger
+                    ),
+                    new LocalizationPatch(
+                        $game,
+                        new RepositoryGroup([
+                            LocalizationPatch::LANG_PL => new Repository($this->config['patch_pl']),
+                            LocalizationPatch::LANG_EN => new Repository($this->config['patch_en']),
+                        ]),
+                        $downloader,
+                        $this->logger
+                    ),
+                    new MusicPatch(
+                        $game,
+                        new RepositoryGroup([
+                            'Warlords Battlecry 2' => new Repository($this->config['patch_music_2']),
+                            'Warlords Battlecry 3' => new Repository($this->config['patch_music_3']),
+                        ]),
+                        $downloader,
+                        $this->logger
+                    ),
+                    new ShowChangelog($this->config['patch_notes']),
+                ]);
 
-            $this->command = $helper->ask($input, $output, $question);
-            foreach ($this->command->getQuestions() as $name => $question) {
-                $this->command->setOption($name, $helper->ask($input, $output, $question));
+                $command = $helper->ask($input, $output, $question);
+                foreach ($command->getQuestions() as $name => $question) {
+                    $command->setOption($name, $helper->ask($input, $output, $question));
+                }
             }
         } catch (throwable $exception) {
             $this->logger->error($exception);
             throw $exception;
         }
-    }
-
-    /**
-     * @param InputInterface $input
-     * @param OutputInterface $output
-     *
-     * @return int
-     * @throws throwable
-     */
-    public function execute(InputInterface $input, OutputInterface $output): int
-    {
         try {
-            $this->command->execute($input, $output, $this);
+            $command->execute($input, $output, $this);
         } catch (throwable $e) {
             $this->logger->error($e);
             throw $e;
