@@ -3,6 +3,9 @@
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use Symfony\Component\Console\Application;
+use Symfony\Component\Console\ConsoleEvents;
+use Symfony\Component\Console\Event\ConsoleErrorEvent;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use WBCUpdater\Config;
 use WBCUpdater\PatchCommand;
 
@@ -16,6 +19,9 @@ $log = new Logger(
 
 chdir(__DIR__);
 $application = new Application('WBC patcher', '1.0.0');
+$dispatcher = new EventDispatcher();
+$dispatcher->addListener(ConsoleEvents::ERROR, fn (ConsoleErrorEvent $event) => $log->error($event->getError()));
+$application->setDispatcher($dispatcher);
 $command = new PatchCommand($config, $log);
 $application->add($command);
 $application->setDefaultCommand($command->getName(), true);
