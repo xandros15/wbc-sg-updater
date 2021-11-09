@@ -12,6 +12,7 @@ use Symfony\Component\Console\Question\Question;
 use throwable;
 use WBCUpdater\Commands\CommandInterface;
 use WBCUpdater\Commands\FullPatch;
+use WBCUpdater\Commands\LocalizationPatch;
 use WBCUpdater\Commands\MusicPatch;
 use WBCUpdater\Commands\ShowChangelog;
 
@@ -69,6 +70,15 @@ final class PatchCommand extends Command
                 new FullPatch(
                     $game,
                     new Repository($this->config['patch_full']),
+                    $downloader,
+                    $this->logger
+                ),
+                new LocalizationPatch(
+                    $game,
+                    new RepositoryGroup([
+                        LocalizationPatch::LANG_PL => new Repository($this->config['patch_pl']),
+                        LocalizationPatch::LANG_EN => new Repository($this->config['patch_en']),
+                    ]),
                     $downloader,
                     $this->logger
                 ),
