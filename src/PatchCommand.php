@@ -9,13 +9,19 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
+use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Console\Question\Question;
+use Symfony\Component\Process\Process;
 use throwable;
-use WBCUpdater\Commands\FullPatch;
-use WBCUpdater\Commands\LocalizationPatch;
-use WBCUpdater\Commands\MusicPatch;
-use WBCUpdater\Commands\ShowChangelog;
-use WBCUpdater\Commands\SimplePatch;
+use WBCUpdater\Archives\PatchInterface;
+use WBCUpdater\Archives\RarPatch;
+use WBCUpdater\Downloaders\MegaFileLink;
+use WBCUpdater\Downloaders\MegaPatchDownloader;
+use WBCUpdater\Downloaders\PatchDownloader;
+use WBCUpdater\Downloaders\PatchFactory;
+use WBCUpdater\Exceptions\FileExistException;
+use WBCUpdater\Exceptions\UnsupportedArchiveException;
+use WBCUpdater\Options\OptionType;
 
 final class PatchCommand extends Command
 {
@@ -25,6 +31,21 @@ final class PatchCommand extends Command
     private Config $config;
     /** @var Logger */
     private Logger $logger;
+
+    const TYPE_FULL = 'full';
+    const TYPE_EN = 'en';
+    const TYPE_PL = 'pl';
+    const TYPE_BGM2 = 'bgm2';
+    const TYPE_BGM3 = 'bgm3';
+    const TYPE_CHLOG = 'chlog';
+
+    const PATCH_MAP = [
+        self::TYPE_FULL => 'full',
+        self::TYPE_EN => 'en',
+        self::TYPE_PL => 'pl',
+        self::TYPE_BGM2 => 'bgm2',
+        self::TYPE_BGM3 => 'bgm3',
+    ];
 
     public function __construct(Config $config, Logger $logger)
     {
@@ -37,6 +58,7 @@ final class PatchCommand extends Command
     public function configure()
     {
         $this->addOption('simple', 's', InputOption::VALUE_NONE, 'Use only if you are stupid, simple?');
+        $this->addOption('dry-run', 'd', InputOption::VALUE_NONE, 'Use for dry run, nothing will be updated.');
     }
 
     /**
@@ -48,81 +70,140 @@ final class PatchCommand extends Command
      */
     public function execute(InputInterface $input, OutputInterface $output): int
     {
-        try {
-            /** @var $helper QuestionHelper */
-            $helper = $this->getHelper('question');
-            $game = new Game($this->config['game_directory']);
+        /** @var $helper QuestionHelper */
+        $helper = $this->getHelper('question');
+        $game = new Game($this->config['game_directory']);
+        $repository = new Repository($this->config['repository']);
+        $repository->register(MegaFileLink::class);
 
-            while (!$game->checkDirectory()) {
-                $output->writeln("Cannot find game in {$game->getDirectory()}");
-                $question = new Question('Type correct directory in command line:');
-                $answer = $helper->ask($input, $output, $question);
-                $game->changeDirectory($answer);
-            }
-            //update config
-            $this->config['game_directory'] = $game->getDirectory();
-            $this->config->save();
-
-            //downloader
-            $downloader = new MegaPatchDownloader(
-                Normalizer::path($this->config['megatools_exe']),
-                $this->config['tmp_dir'],
-                $this->logger
-            );
-
-            if ($input->getOption('simple')) {
-                $command = new SimplePatch(
-                    $game,
-                    new Repository($this->config['patch_full']),
-                    $downloader,
-                    $this->logger
-                );
-            } else {
-                $question = new ChoiceQuestion(
-                    'Do you want to:', [
-                    new FullPatch(
-                        $game,
-                        new Repository($this->config['patch_full']),
-                        $downloader,
-                        $this->logger
-                    ),
-                    new LocalizationPatch(
-                        $game,
-                        new RepositoryGroup([
-                            LocalizationPatch::LANG_PL => new Repository($this->config['patch_pl']),
-                            LocalizationPatch::LANG_EN => new Repository($this->config['patch_en']),
-                        ]),
-                        $downloader,
-                        $this->logger
-                    ),
-                    new MusicPatch(
-                        $game,
-                        new RepositoryGroup([
-                            'Warlords Battlecry 2' => new Repository($this->config['patch_music_2']),
-                            'Warlords Battlecry 3' => new Repository($this->config['patch_music_3']),
-                        ]),
-                        $downloader,
-                        $this->logger
-                    ),
-                    new ShowChangelog($this->config['patch_notes']),
-                ]);
-
-                $command = $helper->ask($input, $output, $question);
-                foreach ($command->getQuestions() as $name => $question) {
-                    $command->setOption($name, $helper->ask($input, $output, $question));
-                }
-            }
-        } catch (throwable $exception) {
-            $this->logger->error($exception);
-            throw $exception;
+        while (!$game->checkDirectory()) {
+            $output->writeln("Cannot find game in {$game->getDirectory()}");
+            $question = new Question('Type correct directory in command line:');
+            $answer = $helper->ask($input, $output, $question);
+            $game->changeDirectory($answer);
         }
-        try {
-            $command->execute($input, $output, $this);
-        } catch (throwable $e) {
-            $this->logger->error($e);
-            throw $e;
+        //update config
+        $this->config['game_directory'] = $game->getDirectory();
+        $this->config->save();
+
+        //downloader
+        $downloader = new MegaPatchDownloader(
+            Normalizer::path($this->config['megatools_exe']),
+            $this->config['tmp_dir'],
+            $this->logger
+        );
+
+        $patcher = new GamePatcher($game, $this->logger);
+        if ($input->getOption('simple')) {
+            $patch = $this->findPatch(self::TYPE_FULL, $repository, $downloader, $output);
+            $patcher->add($patch);
+        } else {
+            $question = new ChoiceQuestion(
+                'Do you want to:', [
+                new OptionType('Install Full Patch', self::TYPE_FULL),
+                new OptionType('Polish Language Pack', self::TYPE_PL),
+                new OptionType('English Language Pack', self::TYPE_EN),
+                new OptionType('WBC2 Music Pack', self::TYPE_BGM2),
+                new OptionType('WBC3 Music Pack', self::TYPE_BGM3),
+                new OptionType('Show Changelog', self::TYPE_CHLOG),
+            ]);
+
+            /** @var $option OptionType */
+            $option = $helper->ask($input, $output, $question);
+
+            if ($option->any([
+                self::TYPE_FULL,
+                self::TYPE_EN,
+                self::TYPE_PL,
+                self::TYPE_BGM2,
+                self::TYPE_BGM3,
+            ])) {
+                $patch = $this->findPatch(self::PATCH_MAP[$option->getValue()], $repository, $downloader, $output);
+                $patcher->add($patch);
+            }
+
+            $overrider = new GameOverrider();
+            $patcher->setOverrider($overrider);
+
+            if ($option->any([
+                self::TYPE_FULL,
+                self::TYPE_EN,
+                self::TYPE_PL,
+            ])) {
+                $overrideKeybinds = $helper->ask($input, $output, new ConfirmationQuestion(
+                    'Do you want to override KeyBinds? Warning: tooltip will be not updated. (y/N): ',
+                    false
+                ));
+                $overrider->add(Override::create('help', '/^English\\\Help\.cfg$/', $overrideKeybinds));
+                $overrider->add(Override::create('keymap', '/^English\\\KeyMap\.txt$/', $overrideKeybinds));
+            }
+
+            if ($option->is(self::TYPE_FULL)) {
+                $overrideSound = $helper->ask($input, $output, new ConfirmationQuestion(
+                    'Do you want to override sounds? (y/N): ', false
+                ));
+                $overrideText = $helper->ask($input, $output,
+                    new ConfirmationQuestion('Do you want to override texts? (y/N): ', false));
+                $overrider->add(Override::create('voices', '/^Assets\\\Sides\\\\\w+VoicesEn.xcr$/', $overrideSound));
+                $overrider->add(Override::create('speech', '/^English\\\GameSpeech\.xcr$/', $overrideSound));
+                $overrider->add(Override::create('game', '/^English\\\Game\.txt$/', $overrideText));
+                $overrider->add(Override::create('screen help', '/^English\\\ScreenHelp\.txt$/', $overrideText));
+                $overrider->add(Override::create('spells', '/^English\\\Spells\.txt$/', $overrideText));
+                $overrider->add(Override::create('quest', '/^English\\\Quest\.cfg$/', $overrideText));
+                $overrider->add(Override::create('names', '/^English\\\Names\.cfg$/', $overrideText));
+                $overrider->add(Override::create('tutorial', '/^English\\\Tutorial\.cfg$/', $overrideText));
+                $overrider->add(Override::create('victory', '/^English\\\Victory\.cfg$/', $overrideText));
+                $overrider->add(Override::create('history', '/^English\\\History\.xml$/', $overrideText));
+                $overrider->add(Override::create('journal', '/^English\\\Journal\.xml$/', $overrideText));
+                $overrider->add(Override::create('hero selection',
+                    '/^English\\\WBC3HeroSelectionText\.txt$/',
+                    $overrideText
+                ));
+                $overrider->add(Override::create('xci strings', '/^English\\\XCIStrings\.txt$/', $overrideText));
+                $overrider->add(Override::create('campaign',
+                    '/^English\\\Campaign\\\\\w+\.(?:wav|xml)$/',
+                    $overrideText
+                ));
+            }
+
+            if ($option->is(self::TYPE_CHLOG)) {
+                $process = new Process([
+                    'explorer',
+                    $this->config['patch_notes'],
+                ]);
+                $process->run();
+            } else {
+                $patcher->patch($input->getOption('dry-run'));
+            }
+            if ($game->removePatchXcr()) {
+                $output->writeln('Removed PatchData.xcr.');
+            }
         }
 
         return Command::SUCCESS;
+    }
+
+    private function findPatch(
+        string $name,
+        Repository $repository,
+        PatchDownloader $downloader,
+        OutputInterface $output
+    ): PatchInterface {
+        try {
+            $link = $repository->create($name);
+            $output->writeln(sprintf('Starting download patch from %s', $link->getLink()));
+            $downloader->download($link);
+        } catch (FileExistException $exception) {
+            $this->logger->warning($exception->getMessage());
+            $this->logger->warning('Skipping override patch file.');
+        }
+
+        if ($downloader->getDownloadedFile()->getExtension() !== 'rar') {//@todo change to dynamic one
+            throw new UnsupportedArchiveException("{$downloader->getDownloadedFile()->getFilename()} isn't supported file.");
+        }
+
+        $builder = new PatchFactory(RarPatch::class);
+
+        return $builder->create($downloader->getDownloadedFile());
     }
 }

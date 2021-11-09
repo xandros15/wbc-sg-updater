@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WBCUpdater;
+namespace WBCUpdater\Downloaders;
 
 use SplFileInfo;
+use WBCUpdater\Archives\PatchInterface;
 use WBCUpdater\Exceptions\ConfigurationException;
 
 final class PatchFactory

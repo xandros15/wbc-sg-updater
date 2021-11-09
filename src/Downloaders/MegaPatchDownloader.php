@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WBCUpdater;
+namespace WBCUpdater\Downloaders;
 
 use Monolog\Logger;
 use SplFileInfo;
@@ -64,6 +64,7 @@ final class MegaPatchDownloader implements PatchDownloader
         $process->run(function (string $stream, $payload) {
             if ($stream === Process::OUT) {
                 ($this->displayStatus)($payload);
+                $this->logger->info($payload);
                 if (preg_match('/^Downloaded\s(.*)/', $payload, $matches)) {
                     $this->downloadedFile = $this->tmpDir . '/' . trim($matches[1]);
                 }
@@ -79,6 +80,9 @@ final class MegaPatchDownloader implements PatchDownloader
                 $this->logger->error(trim($error));
                 throw new RuntimeException($error);
             }
+        }
+        if (!$this->getDownloadedFile()) {
+            throw new InputException('Cannot find patch file.');
         }
     }
 

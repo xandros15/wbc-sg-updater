@@ -6,56 +6,70 @@ namespace WBCUpdater;
 
 use Psr\Log\LoggerInterface;
 use SplFileInfo;
+use WBCUpdater\Archives\PatchFile;
+use WBCUpdater\Archives\PatchInterface;
 
 final class GamePatcher
 {
-    /** @var PatchInterface */
-    private PatchInterface $patch;
+    /** @var PatchInterface[] */
+    private array $patches = [];
     /** @var Game */
     private Game $game;
-    /** @var GameOverrider */
-    private GameOverrider $overrider;
+    /** @var GameOverrider|null */
+    private ?GameOverrider $overrider = null;
     /** @var LoggerInterface */
     private LoggerInterface $logger;
 
     /**
      * GamePatcher constructor.
      *
-     * @param PatchInterface $patch
      * @param Game $game
-     * @param GameOverrider $overrider
      * @param LoggerInterface $logger
      */
-    public function __construct(
-        PatchInterface $patch,
-        Game $game,
-        GameOverrider $overrider,
-        LoggerInterface $logger
-    ) {
-        $this->patch = $patch;
+    public function __construct(Game $game, LoggerInterface $logger)
+    {
         $this->game = $game;
-        $this->overrider = $overrider;
         $this->logger = $logger;
     }
 
-    public function patch(): void
+    /**
+     * @param bool $dryrun
+     */
+    public function patch($dryrun = false): void
     {
-        $dryRun = false;
-        foreach ($this->patch->getFiles() as $file) {
-            if ($this->canUpdate($file)) {
-                echo 'Updating ' . $file->getName();
-                if ($dryRun || $file->extract($this->game->getDirectory())) {
-                    echo '... done';
-                    $this->logger->info("Updated {$file->getName()} ({$file->getCrc32()})");
+        foreach ($this->patches as $patch) {
+            foreach ($patch->getFiles() as $file) {
+                if ($this->canUpdate($file)) {
+                    echo 'Updating ' . $file->getName();
+                    if ($dryrun || $file->extract($this->game->getDirectory())) {
+                        echo '... done';
+                        $this->logger->info("Updated {$file->getName()} ({$file->getCrc32()})");
+                    } else {
+                        echo '... failed';
+                        $this->logger->warning("Failed {$file->getName()} ({$file->getCrc32()})");
+                    }
+                    echo PHP_EOL;
                 } else {
-                    echo '... failed';
-                    $this->logger->warning("Failed {$file->getName()} ({$file->getCrc32()})");
+                    $this->logger->info("Skip {$file->getName()} ({$file->getCrc32()})");
                 }
-                echo PHP_EOL;
-            } else {
-                $this->logger->info("Skip {$file->getName()} ({$file->getCrc32()})");
             }
         }
+    }
+
+    /**
+     * @param GameOverrider $overrider
+     */
+    public function setOverrider(GameOverrider $overrider)
+    {
+        $this->overrider = $overrider;
+    }
+
+    /**
+     * @param PatchInterface $patch
+     */
+    public function add(PatchInterface $patch)
+    {
+        $this->patches[] = $patch;
     }
 
     /**
@@ -65,7 +79,7 @@ final class GamePatcher
      */
     private function canUpdate(PatchFile $remote): bool
     {
-        if (!$this->overrider->canOverride($remote->getName())) {
+        if ($this->overrider && !$this->overrider->canOverride($remote->getName())) {
             return false;
         }
 

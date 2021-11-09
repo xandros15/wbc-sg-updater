@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WBCUpdater;
+namespace WBCUpdater\Downloaders;
 
 use SplFileInfo;
 

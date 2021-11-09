@@ -4,30 +4,34 @@ declare(strict_types=1);
 
 namespace WBCUpdater;
 
+use WBCUpdater\Downloaders\PatchLinkInterface;
 use WBCUpdater\Exceptions\ConfigurationException;
 use WBCUpdater\Exceptions\RuntimeException;
 
 final class Repository
 {
+    /** @var array */
+    private array $repository = [];
+    /** @var array */
+    private array $types = [];
     /** @var string */
-    private string $repository;
+    private string $url;
 
     /**
      * Repository constructor.
      *
-     * @param string $repository URL for repository (pastebin)
+     * @param string $url URL for repository (pastebin)
      */
-    public function __construct(string $repository)
+    public function __construct(string $url)
     {
-        $this->repository = $repository;
+        $this->url = $url;
+        $this->loadRepository($url);
     }
 
     /**
-     * @param string $class ClassName that's PatchLinkInterface
-     *
-     * @return PatchLinkInterface
+     * @param string $class
      */
-    public function getPatchLink(string $class): PatchLinkInterface
+    public function register(string $class): void
     {
         if (!is_subclass_of($class, PatchLinkInterface::class)) {
             throw new ConfigurationException(sprintf(
@@ -36,13 +40,45 @@ final class Repository
                 PatchLinkInterface::class
             ));
         }
+        $this->types[] = $class;
+    }
 
-        $link = (string) file_get_contents($this->repository);
-        if (!$link) {
-            throw new RuntimeException("Cannot get link from repository: {$this->repository}.");
+    /**
+     * @param string $name
+     *
+     * @return PatchLinkInterface
+     */
+    public function create(string $name): PatchLinkInterface
+    {
+        if (!isset($this->repository[$name])) {
+            throw new RuntimeException("{$name} doesn't exist in repository: {$this->url}.");
         }
 
-        /** @var $class PatchLinkInterface */
-        return $class::createFromString($link);
+        foreach ($this->types as $class) {
+            /** @var $class PatchLinkInterface */
+            $patchLink = $class::createFromString($this->repository[$name]);
+            if ($patchLink->isValid()) {
+                return $patchLink;
+            }
+        }
+
+        throw new RuntimeException("{$name} has invalid url: {$this->repository[$name]}.");
+    }
+
+    /**
+     * @param string $url
+     */
+    private function loadRepository(string $url): void
+    {
+        $repository = (string) file_get_contents($url);
+        if (!$repository) {
+            throw new RuntimeException("Cannot connect to repository via {$url}.");
+        }
+        $repository = trim($repository);
+        foreach (explode("\n", $repository) as $item) {
+            $item = trim($item);
+            list($key, $value) = explode('=', $item, 2);
+            $this->repository[$key] = $value;
+        }
     }
 }

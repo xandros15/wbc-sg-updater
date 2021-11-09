@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WBCUpdater;
+namespace WBCUpdater\Downloaders;
 
 final class MegaFileLink implements PatchLinkInterface
 {
