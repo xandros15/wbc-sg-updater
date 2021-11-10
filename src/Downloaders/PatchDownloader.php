@@ -4,19 +4,16 @@ declare(strict_types=1);
 
 namespace WBCUpdater\Downloaders;
 
-use SplFileInfo;
+use WBCUpdater\Archives\PatchInterface;
 
 interface PatchDownloader
 {
     /**
      * @param PatchLinkInterface $link
+     *
+     * @return PatchInterface
      */
-    public function download(PatchLinkInterface $link): void;
-
-    /**
-     * @return SplFileInfo|null
-     */
-    public function getDownloadedFile(): ?SplFileInfo;
+    public function download(PatchLinkInterface $link): PatchInterface;
 
     /**
      * @param callable $display

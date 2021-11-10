@@ -7,8 +7,9 @@ namespace WBCUpdater\Downloaders;
 use Monolog\Logger;
 use SplFileInfo;
 use Symfony\Component\Process\Process;
+use WBCUpdater\Archives\PatchInterface;
+use WBCUpdater\Archives\RarPatch;
 use WBCUpdater\Exceptions\ConfigurationException;
-use WBCUpdater\Exceptions\FileExistException;
 use WBCUpdater\Exceptions\InputException;
 use WBCUpdater\Exceptions\RuntimeException;
 
@@ -16,8 +17,6 @@ final class MegaPatchDownloader implements PatchDownloader
 {
     /** @var string */
     private string $megatools;
-    /** @var string */
-    private string $downloadedFile;
     /** @var string */
     private string $tmpDir;
     /** @var Logger */
@@ -52,21 +51,22 @@ final class MegaPatchDownloader implements PatchDownloader
 
     /**
      * @param PatchLinkInterface $link
+     *
+     * @return PatchInterface
      */
-    public function download(PatchLinkInterface $link): void
+    public function download(PatchLinkInterface $link): PatchInterface
     {
         if (!$link->isValid()) {
             throw new InputException(sprintf('Link should be valid %s link to file.', $link->getName()));
         }
-
         $process = new Process([$this->megatools, 'dl', '--path', $this->tmpDir, $link->getLink()]);
         $process->setTimeout(null);
-        $process->run(function (string $stream, $payload) {
+        $process->run(function (string $stream, $payload) use (&$file) {
             if ($stream === Process::OUT) {
                 ($this->displayStatus)($payload);
                 $this->logger->info($payload);
                 if (preg_match('/^Downloaded\s(.*)/', $payload, $matches)) {
-                    $this->downloadedFile = $this->tmpDir . '/' . trim($matches[1]);
+                    $file = new SplFileInfo($this->tmpDir . '/' . trim($matches[1]));
                 }
             }
         });
@@ -74,24 +74,20 @@ final class MegaPatchDownloader implements PatchDownloader
         if (!$process->isSuccessful()) {
             $error = $process->getErrorOutput();
             if (preg_match('~.*Local file already exists: (.+)~', $error, $matches)) {
-                $this->downloadedFile = trim($matches[1]);
-                throw new FileExistException($error);
+                $file = new SplFileInfo(trim($matches[1]));
+                $this->logger->warning(trim($error));
             } else {
                 $this->logger->error(trim($error));
                 throw new RuntimeException($error);
             }
         }
-        if (!$this->getDownloadedFile()) {
+
+        if (!$file) {
             throw new InputException('Cannot find patch file.');
         }
-    }
+        $builder = new PatchFactory(RarPatch::class);
 
-    /**
-     * @return SplFileInfo|null
-     */
-    public function getDownloadedFile(): ?SplFileInfo
-    {
-        return isset($this->downloadedFile) ? new SplFileInfo($this->downloadedFile) : null;
+        return $builder->create($file);
     }
 
     /**

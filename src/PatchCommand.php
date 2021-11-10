@@ -13,14 +13,8 @@ use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Process\Process;
 use throwable;
-use WBCUpdater\Archives\PatchInterface;
-use WBCUpdater\Archives\RarPatch;
 use WBCUpdater\Downloaders\MegaFileLink;
 use WBCUpdater\Downloaders\MegaPatchDownloader;
-use WBCUpdater\Downloaders\PatchDownloader;
-use WBCUpdater\Downloaders\PatchFactory;
-use WBCUpdater\Exceptions\FileExistException;
-use WBCUpdater\Exceptions\UnsupportedArchiveException;
 use WBCUpdater\Options\OptionType;
 
 final class PatchCommand extends Command
@@ -95,17 +89,19 @@ final class PatchCommand extends Command
 
         $patcher = new GamePatcher($game, $this->logger);
         if ($input->getOption('simple')) {
-            $patch = $this->findPatch(self::TYPE_FULL, $repository, $downloader, $output);
+            $link = $repository->create(self::TYPE_FULL);
+            $output->writeln(sprintf('Starting download patch from %s', $link->getLink()));
+            $patch = $downloader->download($link);
             $patcher->add($patch);
         } else {
             $question = new ChoiceQuestion(
                 'Do you want to:', [
-                new OptionType('Install Full Patch', self::TYPE_FULL),
-                new OptionType('Polish Language Pack', self::TYPE_PL),
-                new OptionType('English Language Pack', self::TYPE_EN),
-                new OptionType('WBC2 Music Pack', self::TYPE_BGM2),
-                new OptionType('WBC3 Music Pack', self::TYPE_BGM3),
-                new OptionType('Show Changelog', self::TYPE_CHLOG),
+                1 => new OptionType('Install Full Patch', self::TYPE_FULL),
+                2 => new OptionType('Polish Language Pack', self::TYPE_PL),
+                3 => new OptionType('English Language Pack', self::TYPE_EN),
+                4 => new OptionType('WBC2 Music Pack', self::TYPE_BGM2),
+                5 => new OptionType('WBC3 Music Pack', self::TYPE_BGM3),
+                6 => new OptionType('Show Changelog', self::TYPE_CHLOG),
             ]);
 
             /** @var $option OptionType */
@@ -118,7 +114,9 @@ final class PatchCommand extends Command
                 self::TYPE_BGM2,
                 self::TYPE_BGM3,
             ])) {
-                $patch = $this->findPatch(self::PATCH_MAP[$option->getValue()], $repository, $downloader, $output);
+                $link = $repository->create(self::PATCH_MAP[$option->getValue()]);
+                $output->writeln(sprintf('Starting download patch from %s', $link->getLink()));
+                $patch = $downloader->download($link);
                 $patcher->add($patch);
             }
 
@@ -181,29 +179,5 @@ final class PatchCommand extends Command
         }
 
         return Command::SUCCESS;
-    }
-
-    private function findPatch(
-        string $name,
-        Repository $repository,
-        PatchDownloader $downloader,
-        OutputInterface $output
-    ): PatchInterface {
-        try {
-            $link = $repository->create($name);
-            $output->writeln(sprintf('Starting download patch from %s', $link->getLink()));
-            $downloader->download($link);
-        } catch (FileExistException $exception) {
-            $this->logger->warning($exception->getMessage());
-            $this->logger->warning('Skipping override patch file.');
-        }
-
-        if ($downloader->getDownloadedFile()->getExtension() !== 'rar') {//@todo change to dynamic one
-            throw new UnsupportedArchiveException("{$downloader->getDownloadedFile()->getFilename()} isn't supported file.");
-        }
-
-        $builder = new PatchFactory(RarPatch::class);
-
-        return $builder->create($downloader->getDownloadedFile());
     }
 }
