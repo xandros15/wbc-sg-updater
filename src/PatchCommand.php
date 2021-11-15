@@ -93,6 +93,7 @@ final class PatchCommand extends Command
             $output->writeln(sprintf('Starting download patch from %s', $link->getLink()));
             $patch = $downloader->download($link);
             $patcher->add($patch);
+            $patcher->patch($input->getOption('dry-run'));
         } else {
             $question = new ChoiceQuestion(
                 'Do you want to:', [
