@@ -19,7 +19,7 @@ final class PatchFactory
      *
      * @param array $classes
      */
-    public function __construct(array $classes)
+    public function __construct(array $classes = [])
     {
         foreach ($classes as $class) {
             $this->register($class);

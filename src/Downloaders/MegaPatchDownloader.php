@@ -85,7 +85,8 @@ final class MegaPatchDownloader implements PatchDownloader
         if (!$file) {
             throw new InputException('Cannot find patch file.');
         }
-        $builder = new PatchFactory(RarPatch::class);
+        $builder = new PatchFactory();
+        $builder->register(RarPatch::class);
 
         return $builder->create($file);
     }
