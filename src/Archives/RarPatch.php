@@ -10,6 +10,8 @@ use SplFileInfo;
 
 final class RarPatch implements PatchInterface
 {
+    private const EXTENSION = 'rar';
+
     /** @var SplFileInfo */
     private SplFileInfo $file;
 
@@ -30,5 +32,15 @@ final class RarPatch implements PatchInterface
             }
         }
         $archive->close();
+    }
+
+    /**
+     * @param string $extension
+     *
+     * @return bool
+     */
+    public static function isCorrectExtension(string $extension): bool
+    {
+        return $extension === self::EXTENSION;
     }
 }
