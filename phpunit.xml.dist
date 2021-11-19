@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+        bootstrap="vendor/autoload.php"
+        backupGlobals="true"
+        colors="true"
+        verbose="true"
+        failOnRisky="true"
+        failOnWarning="true"
+        convertErrorsToExceptions="true"
+        convertNoticesToExceptions="true"
+        convertWarningsToExceptions="true"
+        stopOnFailure="false"
+        executionOrder="random"
+        cacheResultFile="tmp/.phpunit.result.cache"
+>
+    <php>
+        <ini name="error_reporting" value="-1"/>
+        <ini name="memory_limit" value="2048M"/>
+    </php>
+    <testsuite name="Unit Test Suite">
+        <directory>./tests/</directory>
+    </testsuite>
+    <coverage>
+        <include>
+            <directory>./src</directory>
+        </include>
+    </coverage>
+</phpunit>
